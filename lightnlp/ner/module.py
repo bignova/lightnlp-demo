@@ -43,6 +43,8 @@ class NER(Module):
             from tensorboardX import SummaryWriter
             writer = SummaryWriter()
 
+        max_dev_score = 0.0
+
         for epoch in range(config.epoch):
             bilstmcrf.train()
             acc_loss = 0
@@ -61,17 +63,22 @@ class NER(Module):
             if dev_path:
                 dev_score = self._validate(dev_dataset)
                 logger.info('dev score:{}'.format(dev_score))
-            
+                if dev_score > max_dev_score:
+                    max_dev_score = dev_score
+                    config.save()
+                    bilstmcrf.save()
+                    logger.info('higher dev score! model at epoch: {} has been saved'.format(epoch))
+            else:
+                config.save()
+                bilstmcrf.save()
+                logger.info('model at epoch: {} has been saved'.format(epoch))
+
             adjust_learning_rate(optim, config.lr / (1 + (epoch + 1) * config.lr_decay))
 
             if use_board:
                 writer.add_scalar('loss', acc_loss, epoch)
                 if dev_path:
                     writer.add_scalar('score', dev_score, epoch)
-
-            config.save()
-            bilstmcrf.save()
-            logger.info('model at epoch: {} has been saved'.format(epoch))
 
     def predict(self, text):
         self._model.eval()
